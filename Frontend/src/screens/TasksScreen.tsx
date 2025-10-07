@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
   View,
   Text,
@@ -36,6 +37,7 @@ const TasksScreen = ({ navigation }: any) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -51,6 +53,7 @@ const TasksScreen = ({ navigation }: any) => {
   
   const { 
     user, 
+    loading: authLoading,
     isAdmin, 
     isSupervisor, 
     isUser, 
@@ -66,9 +69,22 @@ const TasksScreen = ({ navigation }: any) => {
   const [asignadoAId, setAsignadoAId] = useState<number | null>(null);
   const [fechaVencimiento, setFechaVencimiento] = useState('');
 
+  // ✅ CORREGIDO: Solo cargar cuando el usuario esté disponible
   useEffect(() => {
-    loadData();
-  }, []);
+    console.log('🔍 [TASKS] Estado auth:', { 
+      user: user?.username, 
+      authLoading 
+    });
+    
+    if (!authLoading && user) {
+      console.log('🚀 [TASKS] Usuario listo, cargando datos...');
+      loadData();
+    } else if (!authLoading && !user) {
+      console.log('❌ [TASKS] No hay usuario, mostrando error...');
+      setError('No hay usuario autenticado');
+      setLoading(false);
+    }
+  }, [authLoading, user]);
 
   // Efecto para búsqueda con debounce
   useEffect(() => {
@@ -83,47 +99,63 @@ const TasksScreen = ({ navigation }: any) => {
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
 
- const loadData = async () => {
-  try {
-    setLoading(true);
-    console.log('🔄 Cargando datos para usuario:', user?.username, 'Rol:', user?.role);
-    
-    // ✅ SOLO cargar tareas (esto funciona para todos los roles)
-    console.log('📋 Cargando tareas...');
-    const tasksResponse = await tasksAPI.getAll();
-    console.log('✅ Tareas cargadas:', tasksResponse.data?.length || 0);
-    setTasks(tasksResponse.data || []);
-    
-    // ✅ SOLO cargar usuarios si el usuario es Admin o Supervisor
-    if (isAdmin() || isSupervisor()) {
-      console.log('👥 Cargando usuarios (usuario tiene permisos)...');
-      const usersResponse = await tasksAPI.getUsers();
-      console.log('✅ Usuarios cargados:', usersResponse.data?.length || 0);
-      setUsers(usersResponse.data || []);
-    } else {
-      console.log('🚫 Usuario normal - No necesita cargar lista de usuarios');
-      setUsers([]); // Array vacío
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('🔄 [TASKS] Cargando datos para usuario:', user?.username, 'Rol:', user?.role);
+      
+      // ✅ Cargar SOLO tareas primero
+      console.log('📋 [TASKS] Llamando a tasksAPI.getAll()...');
+      const tasksResponse = await tasksAPI.getAll();
+      console.log('✅ [TASKS] Tareas cargadas:', {
+        status: tasksResponse.status,
+        dataLength: tasksResponse.data?.length || 0,
+        data: tasksResponse.data
+      });
+      
+      // ✅ Validar que sea un array y filtrar elementos inválidos
+      const validTasks = Array.isArray(tasksResponse.data) 
+        ? tasksResponse.data.filter(task => task && task.idTarea)
+        : [];
+      
+      console.log('✅ [TASKS] Tareas válidas:', validTasks.length);
+      setTasks(validTasks);
+      
+      // ✅ SOLO cargar usuarios si el usuario es Admin o Supervisor
+      if (isAdmin() || isSupervisor()) {
+        console.log('👥 [TASKS] Cargando usuarios...');
+        try {
+          const usersResponse = await tasksAPI.getUsers();
+          console.log('✅ [TASKS] Usuarios cargados:', usersResponse.data?.length || 0);
+          setUsers(usersResponse.data || []);
+        } catch (usersError: any) {
+          console.log('⚠️ [TASKS] Error cargando usuarios (esperado):', usersError.message);
+          setUsers([]);
+        }
+      } else {
+        console.log('🚫 [TASKS] Usuario normal - No carga usuarios');
+        setUsers([]);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ [TASKS] Error cargando datos:', {
+        message: error.message,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      
+      if (error.response?.status === 403) {
+        console.log('⚠️ [TASKS] Error 403 esperado - Usuario sin permisos para esa ruta');
+      } else {
+        setError('No se pudieron cargar las tareas: ' + error.message);
+      }
+      
+      setTasks([]);
+    } finally {
+      setLoading(false);
     }
-    
-  } catch (error: any) {
-    console.error('❌ Error cargando datos:', {
-      message: error.message,
-      status: error.response?.status,
-      url: error.config?.url
-    });
-    
-    if (error.response?.status === 403) {
-      // Error 403 es normal para usuarios normales intentando acceder a /users
-      console.log('⚠️  Error 403 esperado - Usuario sin permisos para esa ruta');
-    } else {
-      Alert.alert('Error', 'No se pudieron cargar las tareas: ' + error.message);
-    }
-    
-    setTasks([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Función para buscar usuarios
   const searchUsers = async (query: string) => {
@@ -358,6 +390,47 @@ const TasksScreen = ({ navigation }: any) => {
     setTaskToDelete(null);
   };
 
+  // ✅ CORREGIDO: Estados de carga y error
+  if (authLoading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>Cargando usuario...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>No hay usuario logueado</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.linkText}>Ir al Login</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (loading) {
+    return (
+      <View style={styles.centerContainer}>
+        <ActivityIndicator size="large" color="#6366f1" />
+        <Text style={styles.loadingText}>Cargando tareas...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.errorText}>Error: {error}</Text>
+        <TouchableOpacity onPress={loadData}>
+          <Text style={styles.linkText}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   const getStatusColor = (estado: string) => {
     switch (estado) {
       case 'completada': return '#10b981';
@@ -454,15 +527,6 @@ const TasksScreen = ({ navigation }: any) => {
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={styles.loadingText}>Cargando tareas...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -480,9 +544,14 @@ const TasksScreen = ({ navigation }: any) => {
 
       {/* Lista de Tareas */}
       <FlatList
-        data={tasks}
+        data={tasks.filter(task => task && task.idTarea)}
         renderItem={renderTaskItem}
-        keyExtractor={(item) => item.idTarea.toString()}
+        keyExtractor={(item, index) => {
+          if (item && item.idTarea) {
+            return item.idTarea.toString();
+          }
+          return `task-${index}`;
+        }}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -743,6 +812,16 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     color: '#64748b',
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#ef4444',
+    marginBottom: 16,
+  },
+  linkText: {
+    color: '#6366f1',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   header: {
     flexDirection: 'row',

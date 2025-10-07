@@ -1,28 +1,47 @@
 // Frontend/src/services/api.ts
 import axios from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://superwealthy-numerously-collin.ngrok-free.dev/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // ✅ REQUERIDO PARA NGROK
   },
   timeout: 10000,
 });
 
-// Interceptor para debugging
+// ✅ INTERCEPTOR CORREGIDO - Con mejor manejo de async/await
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    try {
+      console.log('🚀 Preparando request a:', `${config.baseURL}${config.url}`);
+      
+      // Asegurar que el header de ngrok siempre esté presente
+      if (!config.headers['ngrok-skip-browser-warning']) {
+        config.headers['ngrok-skip-browser-warning'] = 'true';
+      }
+      
+      // ✅ CORREGIDO: Obtener token de forma segura
+      const token = await AsyncStorage.getItem('authToken');
+      console.log('🔐 Token disponible:', token ? `SÍ (${token.substring(0, 20)}...)` : 'NO');
+      
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log('✅ Token añadido a headers');
+      } else {
+        console.log('⚠️  No se encontró token, enviando request sin autenticación');
+      }
+    } catch (error) {
+      console.error('❌ Error obteniendo token en interceptor:', error);
     }
-    console.log('🚀 Enviando request a:', `${config.baseURL}${config.url}`);
+    
     return config;
   },
   (error) => {
-    console.error('❌ Error en request:', error);
+    console.error('❌ Error en request interceptor:', error);
     return Promise.reject(error);
   }
 );
@@ -32,7 +51,7 @@ api.interceptors.response.use(
     console.log('✅ Response exitoso:', {
       status: response.status,
       url: response.config.url,
-      data: response.data
+      dataLength: Array.isArray(response.data) ? response.data.length : 'N/A'
     });
     return response;
   },
@@ -45,9 +64,8 @@ api.interceptors.response.use(
     });
     
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      console.log('Sesión expirada');
+      console.log('🔐 Sesión expirada - Limpiando datos de autenticación');
+      AsyncStorage.multiRemove(['authToken', 'userData']);
     }
     return Promise.reject(error);
   }
@@ -59,38 +77,106 @@ export const authAPI = {
 };
 
 export const tasksAPI = {
-  // ✅ RUTAS CORREGIDAS - Todas empiezan con /api
-  getAll: () => api.get('/tareas'),
-  create: (taskData: any) => api.post('/tareas', taskData),
-  update: (id: number, taskData: any) => api.put(`/tareas/${id}`, taskData),
-  updateStatus: (id: number, estado: string) => api.patch(`/tareas/${id}/estado`, { estado }),
-  delete: (id: number) => api.delete(`/tareas/${id}`),
+  getAll: () => {
+    console.log('📋 tasksAPI.getAll() llamado');
+    return api.get('/tareas');
+  },
+  create: (taskData: any) => {
+    console.log('➕ Creando tarea:', taskData);
+    return api.post('/tareas', taskData);
+  },
+  update: (id: number, taskData: any) => {
+    console.log('✏️ Actualizando tarea:', id);
+    return api.put(`/tareas/${id}`, taskData);
+  },
+  updateStatus: (id: number, estado: string) => {
+    console.log('🔄 Cambiando estado:', id, estado);
+    return api.patch(`/tareas/${id}/estado`, { estado });
+  },
+  delete: (id: number) => {
+    console.log('🗑️ Eliminando tarea:', id);
+    return api.delete(`/tareas/${id}`);
+  },
   
   // Búsqueda y usuarios
-  searchUsers: (query: string) => api.get(`/tareas/users/search?query=${encodeURIComponent(query)}`),
-  getUsers: () => api.get('/tareas/users'),
-  getStats: () => api.get('/tareas/stats'),
+  searchUsers: (query: string) => {
+    console.log('🔍 Buscando usuarios:', query);
+    return api.get(`/tareas/users/search?query=${encodeURIComponent(query)}`);
+  },
+  getUsers: () => {
+    console.log('👥 Obteniendo usuarios');
+    return api.get('/tareas/users');
+  },
+  getStats: () => {
+    console.log('📊 Obteniendo estadísticas');
+    return api.get('/tareas/stats');
+  },
 };
 
-// Helper functions para autenticación
+// Helper functions para autenticación - CORREGIDO
 export const authHelper = {
-  saveAuthData: (token: string, user: any) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(user));
+  // ✅ NUEVO: Guardar datos con AsyncStorage (async)
+  saveAuthData: async (token: string, user: any) => {
+    try {
+      console.log('💾 Guardando auth data...');
+      await AsyncStorage.multiSet([
+        ['authToken', token],
+        ['userData', JSON.stringify(user)]
+      ]);
+      console.log('✅ Auth data guardado correctamente');
+    } catch (error) {
+      console.error('❌ Error guardando auth data:', error);
+      throw error;
+    }
   },
-  
-  clearAuthData: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+
+  // ✅ NUEVO: Obtener datos de autenticación (async)
+  getAuthData: async () => {
+    try {
+      const [token, user] = await AsyncStorage.multiGet(['authToken', 'userData']);
+      console.log('🔍 Token recuperado:', token[1] ? 'SÍ' : 'NO');
+      console.log('🔍 User data recuperado:', user[1] ? 'SÍ' : 'NO');
+      
+      return {
+        token: token[1],
+        user: user[1] ? JSON.parse(user[1]) : null
+      };
+    } catch (error) {
+      console.error('❌ Error obteniendo auth data:', error);
+      return { token: null, user: null };
+    }
   },
-  
-  getCurrentUser: () => {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
+
+  // ✅ NUEVO: Limpiar datos de autenticación (async)
+  clearAuthData: async () => {
+    try {
+      await AsyncStorage.multiRemove(['authToken', 'userData']);
+      console.log('✅ Auth data limpiado correctamente');
+    } catch (error) {
+      console.error('❌ Error limpiando auth data:', error);
+    }
   },
-  
-  getToken: () => {
-    return localStorage.getItem('token');
+
+  // ✅ CORREGIDO: Funciones legacy ahora también async
+  getCurrentUser: async () => {
+    try {
+      const userData = await AsyncStorage.getItem('userData');
+      return userData ? JSON.parse(userData) : null;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  },
+
+  getToken: async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      console.log('🔑 Token obtenido:', token ? 'SÍ' : 'NO');
+      return token;
+    } catch (error) {
+      console.error('Error getting token:', error);
+      return null;
+    }
   }
 };
 

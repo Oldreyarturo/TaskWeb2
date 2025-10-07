@@ -1,24 +1,70 @@
-// Frontend/src/hooks/useAuth.ts
+// hooks/useAuth.ts - VERSIÓN CORREGIDA
 import { useState, useEffect } from 'react';
 import { authHelper } from '../services/api';
 
+// En useAuth.ts, cambia la interfaz User:
 export interface User {
-  id: number;
+  id: number;           
   username: string;
+  nombreUsuario?: string;
   role: string;
   roleId: number;
 }
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Cargar usuario del localStorage al iniciar
   useEffect(() => {
-    const currentUser = authHelper.getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
-    }
+    const loadUser = async () => {
+      try {
+        console.log('🔍 Cargando usuario desde storage...');
+        const { user: storedUser } = await authHelper.getAuthData();
+        console.log('👤 Usuario recuperado:', storedUser);
+        
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      } catch (error) {
+        console.error('❌ Error cargando usuario:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
+
+  const getDisplayName = () => {
+    if (!user) return 'Usuario';
+    return user.nombreUsuario || user.username || 'Usuario';
+  };
+
+  const login = async (userData: User, token: string) => {
+    try {
+      console.log('🔐 useAuth.login() llamado:', userData);
+      await authHelper.saveAuthData(token, userData);
+      setUser(userData);
+      console.log('✅ Usuario establecido en estado global');
+    } catch (error) {
+      console.error('❌ Error en useAuth.login:', error);
+      throw error;
+    }
+  };
+
+  // ✅ CORREGIDO: Función logout con await y manejo de errores
+  const logout = async () => {
+    try {
+      console.log('🔄 useAuth.logout() iniciado');
+      await authHelper.clearAuthData(); // ✅ AGREGADO AWAIT
+      console.log('✅ AsyncStorage limpiado');
+      setUser(null);
+      console.log('✅ Estado de usuario limpiado');
+    } catch (error) {
+      console.error('❌ Error en useAuth.logout:', error);
+      throw error;
+    }
+  };
 
   const isAdmin = () => user?.role === 'Administrador';
   const isSupervisor = () => user?.role === 'Supervisor';
@@ -34,21 +80,17 @@ export const useAuth = () => {
   const canChangeStatus = (task: any) => 
     isAdmin() || isSupervisor() || task.asignadoAId === user?.id;
 
-  // Función para actualizar el usuario
   const updateUser = (userData: User | null) => {
     setUser(userData);
-  };
-
-  // Función para cerrar sesión
-  const logout = () => {
-    authHelper.clearAuthData();
-    setUser(null);
   };
 
   return {
     user,
     setUser: updateUser,
+    login,
     logout,
+    loading,
+    getDisplayName,
     isAdmin,
     isSupervisor,
     isUser,

@@ -96,8 +96,8 @@ const LoginScreen = ({ navigation }: any) => {
       console.log('✅ Respuesta del login:', response.data);
 
       if (response.data.success) {
-        // Guardar datos usando el helper
-        authHelper.saveAuthData(response.data.token, response.data.user);
+        // ✅ CORREGIDO: Usar await con authHelper
+        await authHelper.saveAuthData(response.data.token, response.data.user);
         auth.setUser(response.data.user);
         
         console.log('👤 Usuario guardado:', response.data.user);
@@ -129,8 +129,10 @@ const LoginScreen = ({ navigation }: any) => {
         setLoginError('Usuario o contraseña incorrectos');
       } else if (apiError.response?.data?.message) {
         setLoginError(apiError.response.data.message);
-      } else if (apiError.message.includes('Network Error')) {
+      } else if (apiError.message?.includes('Network Error')) {
         setLoginError('Error de conexión. Verifica tu internet o que el servidor esté ejecutándose.');
+      } else if (apiError.message?.includes('Failed to fetch')) {
+        setLoginError('No se puede conectar al servidor. Verifica que el backend esté corriendo.');
       } else {
         setLoginError('Error al iniciar sesión');
       }
