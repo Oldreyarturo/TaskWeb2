@@ -12,7 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { authHelper } from '../services/api';
 import { tasksAPI } from '../services/api';
 
-// ✅ USAR LAS MISMAS INTERFACES QUE TU TASKSCREEN
+//  USAR LAS MISMAS INTERFACES QUE TU TASKSCREEN
 interface Task {
   idTarea: number;
   titulo: string;
