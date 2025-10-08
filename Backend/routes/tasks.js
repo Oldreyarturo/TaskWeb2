@@ -3,7 +3,7 @@ const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleAuth');
 const db = require('../config/database');
-
+//Te quiero mucho tocayo
 router.get('/', verifyToken, (req, res) => {
   console.log('📋 Obteniendo tareas para usuario:', req.user.username, 'Rol:', req.user.role);
   

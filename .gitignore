@@ -16,7 +16,7 @@
 **/dist/
 **/web-build/
 **/expo-env.d.ts
-
+/Frontend/src/services/api.ts
 # Archivos de sistema operativo
 .DS_Store
 
