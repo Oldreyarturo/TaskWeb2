@@ -16,6 +16,9 @@ import { Calendar } from 'react-native-calendars';
 import { tasksAPI } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
+
+//Hola yuyu
+
 interface Task {
   idTarea: number;
   titulo: string;
@@ -69,7 +72,7 @@ const TasksScreen = ({ navigation }: any) => {
   const [asignadoAId, setAsignadoAId] = useState<number | null>(null);
   const [fechaVencimiento, setFechaVencimiento] = useState('');
 
-  // ✅ CORREGIDO: Solo cargar cuando el usuario esté disponible
+  //  CORREGIDO: Solo cargar cuando el usuario esté disponible
   useEffect(() => {
     console.log('🔍 [TASKS] Estado auth:', { 
       user: user?.username, 
@@ -77,7 +80,7 @@ const TasksScreen = ({ navigation }: any) => {
     });
     
     if (!authLoading && user) {
-      console.log('🚀 [TASKS] Usuario listo, cargando datos...');
+      console.log(' [TASKS] Usuario listo, cargando datos...');
       loadData();
     } else if (!authLoading && !user) {
       console.log('❌ [TASKS] No hay usuario, mostrando error...');
