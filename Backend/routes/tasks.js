@@ -4,7 +4,6 @@ const { verifyToken } = require('../middleware/auth');
 const { checkRole } = require('../middleware/roleAuth');
 const db = require('../config/database');
 
-// GET /api/tareas - Filtrado por rol (RUTA PRINCIPAL QUE FALTABA)
 router.get('/', verifyToken, (req, res) => {
   console.log('📋 Obteniendo tareas para usuario:', req.user.username, 'Rol:', req.user.role);
   
@@ -15,7 +14,6 @@ router.get('/', verifyToken, (req, res) => {
     LEFT JOIN usuarios u2 ON t.asignadoAId = u2.idUsuario
   `;
   
-  // Si no es admin/supervisor, solo ver sus tareas
   if (!['Administrador', 'Supervisor'].includes(req.user.role)) {
     console.log('🔍 Filtrando tareas: solo las del usuario');
     query += ' WHERE t.creadoPorId = ? OR t.asignadoAId = ?';
@@ -53,7 +51,6 @@ router.get('/', verifyToken, (req, res) => {
   }
 });
 
-// GET /api/tareas/users/search - Búsqueda de usuarios para asignar
 router.get('/users/search', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, res) => {
   const { query } = req.query;
   console.log('🔍 Buscando usuarios con query:', query);
@@ -91,14 +88,12 @@ router.get('/users/search', verifyToken, checkRole(['Administrador', 'Supervisor
   });
 });
 
-// POST /api/tareas - Solo Admin y Supervisor pueden crear
 router.post('/', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, res) => {
   console.log('➕ Creando tarea para usuario:', req.user.username, 'Rol:', req.user.role);
   console.log('   Datos recibidos:', req.body);
   
   const { titulo, descripcion, asignadoAId, fechaVencimiento } = req.body;
   
-  // Validaciones básicas
   if (!titulo || titulo.trim() === '') {
     return res.status(400).json({
       success: false,
@@ -140,13 +135,11 @@ router.post('/', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, 
   });
 });
 
-// PUT /api/tareas/:id - Solo Admin y Supervisor pueden editar
 router.put('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, res) => {
   const taskId = req.params.id;
   console.log('✏️ Editando tarea:', taskId, 'Usuario:', req.user.username, 'Rol:', req.user.role);
   console.log('   Datos recibidos:', req.body);
   
-  // Primero verificar si la tarea existe
   const checkQuery = 'SELECT * FROM tareas WHERE idTarea = ?';
   
   console.log('   Verificando tarea con query:', checkQuery);
@@ -169,7 +162,6 @@ router.put('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (req
       });
     }
     
-    // Validar datos requeridos
     const { titulo, descripcion, asignadoAId, fechaVencimiento, estado } = req.body;
     
     if (!titulo || titulo.trim() === '') {
@@ -179,7 +171,6 @@ router.put('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (req
       });
     }
     
-    // Proceder con la actualización (Admin y Supervisor pueden editar cualquier tarea)
     const updateQuery = `
       UPDATE tareas 
       SET titulo = ?, descripcion = ?, asignadoAId = ?, fechaVencimiento = ?, estado = ?
@@ -224,7 +215,6 @@ router.put('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (req
   });
 });
 
-// DELETE /api/tareas/:id - Solo Admin y Supervisor pueden eliminar (CON DEBUGGING COMPLETO)
 router.delete('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, res) => {
   const taskId = req.params.id;
   console.log('=== 🗑️ INICIANDO ELIMINACIÓN ===');
@@ -232,7 +222,6 @@ router.delete('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (
   console.log('👤 Usuario:', req.user.username, 'Rol:', req.user.role);
   console.log('🔍 Tipo de taskId:', typeof taskId);
   
-  // Verificar que la tarea existe ANTES de eliminar
   const checkQuery = 'SELECT * FROM tareas WHERE idTarea = ?';
   console.log('🔍 Verificando existencia con query:', checkQuery);
   
@@ -256,7 +245,6 @@ router.delete('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (
       });
     }
     
-    // Si existe, proceder con la eliminación
     const deleteQuery = 'DELETE FROM tareas WHERE idTarea = ?';
     console.log('🗑️ Ejecutando DELETE query:', deleteQuery);
     console.log('📌 Con parámetro:', [taskId]);
@@ -293,7 +281,6 @@ router.delete('/:id', verifyToken, checkRole(['Administrador', 'Supervisor']), (
   });
 });
 
-// GET /api/tareas/users - Solo Admin y Supervisor pueden ver usuarios para asignar
 router.get('/users', verifyToken, checkRole(['Administrador', 'Supervisor']), (req, res) => {
   console.log('👥 Obteniendo usuarios para asignación. Usuario:', req.user.username, 'Rol:', req.user.role);
   
@@ -314,14 +301,12 @@ router.get('/users', verifyToken, checkRole(['Administrador', 'Supervisor']), (r
   });
 });
 
-// PATCH /api/tareas/:id/estado - Cualquier usuario puede cambiar estado de tareas asignadas a él
 router.patch('/:id/estado', verifyToken, (req, res) => {
   const taskId = req.params.id;
   const { estado } = req.body;
   
   console.log('🔄 Cambiando estado de tarea:', taskId, 'a', estado, 'Usuario:', req.user.username, 'Rol:', req.user.role);
   
-  // Validar estado
   const estadosValidos = ['pendiente', 'enProgreso', 'completada'];
   if (!estado || !estadosValidos.includes(estado)) {
     return res.status(400).json({
@@ -330,7 +315,6 @@ router.patch('/:id/estado', verifyToken, (req, res) => {
     });
   }
   
-  // Verificar si el usuario puede cambiar el estado
   const checkQuery = 'SELECT creadoPorId, asignadoAId FROM tareas WHERE idTarea = ?';
   
   console.log('   Verificando permisos con query:', checkQuery);
@@ -360,8 +344,6 @@ router.patch('/:id/estado', verifyToken, (req, res) => {
     console.log('   Está asignado?:', isAssigned);
     console.log('   Puede cambiar todo?:', canChangeAll);
     
-    // CORREGIDO: Usuario solo puede cambiar estado si está asignado a él
-    // Admin y Supervisor pueden cambiar cualquier estado
     if (!isAssigned && !canChangeAll) {
       console.log('❌ No tiene permisos para cambiar estado de esta tarea');
       return res.status(403).json({ 
@@ -370,7 +352,6 @@ router.patch('/:id/estado', verifyToken, (req, res) => {
       });
     }
     
-    // Proceder con el cambio de estado
     const updateQuery = 'UPDATE tareas SET estado = ? WHERE idTarea = ?';
     
     console.log('   Ejecutando update query:', updateQuery);
@@ -402,7 +383,6 @@ router.patch('/:id/estado', verifyToken, (req, res) => {
   });
 });
 
-// GET /api/tareas/stats - Estadísticas de tareas
 router.get('/stats', verifyToken, (req, res) => {
   console.log('📊 Obteniendo estadísticas para usuario:', req.user.username, 'Rol:', req.user.role);
   
@@ -417,7 +397,6 @@ router.get('/stats', verifyToken, (req, res) => {
   
   let params = [];
   
-  // Si no es admin/supervisor, solo contar sus tareas
   if (!['Administrador', 'Supervisor'].includes(req.user.role)) {
     query += ' WHERE creadoPorId = ? OR asignadoAId = ?';
     params = [req.user.id, req.user.id];
@@ -440,7 +419,6 @@ router.get('/stats', verifyToken, (req, res) => {
   });
 });
 
-// Ruta de prueba para verificar que el router funciona
 router.get('/test', verifyToken, (req, res) => {
   console.log('🧪 Test route - Usuario:', req.user.username, 'Rol:', req.user.role);
   res.json({ 
