@@ -3,7 +3,6 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/database');
 const router = express.Router();
 
-// 🔐 LOGIN
 router.post('/login', async (req, res) => {
   const { nombreUsuario, contrasena } = req.body;
 
@@ -45,7 +44,6 @@ router.post('/login', async (req, res) => {
       const user = results[0];
       console.log(`✅ Usuario encontrado: ${user.nombreUsuario} (ID: ${user.idUsuario})`);
       
-      // Verificar contraseña (texto plano)
       const isPasswordValid = contrasena === user.contrasena;
       
       if (!isPasswordValid) {
@@ -56,7 +54,6 @@ router.post('/login', async (req, res) => {
         });
       }
 
-      // Configuración del token
       const jwtSecret = process.env.JWT_SECRET || 'taskweb_secret';
       const tokenPayload = { 
         id: user.idUsuario, 
@@ -68,7 +65,6 @@ router.post('/login', async (req, res) => {
       console.log('   Secret:', jwtSecret === 'taskweb_secret' ? 'DEFAULT' : 'CUSTOM');
       console.log('   Payload:', tokenPayload);
 
-      // Generar token
       const token = jwt.sign(
         tokenPayload,
         jwtSecret,
@@ -136,7 +132,6 @@ router.get('/verify-token', (req, res) => {
   }
 });
 
-// 🔄 RENOVAR TOKEN
 router.post('/refresh-token', (req, res) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   
@@ -179,7 +174,6 @@ router.post('/refresh-token', (req, res) => {
   }
 });
 
-// ℹ️ INFORMACIÓN DEL SERVICIO AUTH
 router.get('/info', (req, res) => {
   const jwtSecret = process.env.JWT_SECRET || 'taskweb_secret';
   
