@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies
@@ -12,11 +13,47 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
+=======
+# Ignorar dependencias en cualquier subdirectorio
+**/node_modules/
+
+# Archivos de entorno locales en cualquier subdirectorio
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Carpetas de Expo y builds
+**/.expo/
+**/dist/
+**/web-build/
+**/expo-env.d.ts
+/Frontend/src/services/api.ts
+# Archivos de sistema operativo
+.DS_Store
+
+# Archivos de build de TypeScript
+**/*.tsbuildinfo
+
+# Carpetas nativas generadas (si usas prebuild)
+**/ios/
+**/android/
+
+# Archivos de Metro Bundler
+.metro-health-check*
+
+# Archivos de keystores y certificados (seguridad)
+>>>>>>> 34e8547188191420f4335fefb2bb82f0b78ad8d2
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+<<<<<<< HEAD
 
 # Metro
 .metro-health-check*
@@ -39,3 +76,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+=======
+*.pem
+>>>>>>> 34e8547188191420f4335fefb2bb82f0b78ad8d2
